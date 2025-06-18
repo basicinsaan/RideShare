@@ -9,8 +9,10 @@ lifecycleRuntimeKtx = "2.8.6"
 activityCompose = "1.9.3"
 composeBom = "2024.04.01"
 googlePlayServicesMaps = "19.0.0" # Added version for Play Services Maps (latest as of 2024)
+mapsComposeVersion = "4.2.0"
 navigationCompose = "2.7.7"
 mapsCompose = "4.3.0"
+playServicesMaps = "18.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -30,6 +32,8 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 google-play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "googlePlayServicesMaps" } # Added library
 google-maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+maps-compose-v420 = { module = "com.google.maps.android:maps-compose", version.ref = "mapsComposeVersion" }
+play-services-maps-v1820 = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
