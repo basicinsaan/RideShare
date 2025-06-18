@@ -27,6 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -41,10 +45,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.biswaraj.rideshare.ui.theme.RideShareTheme
+import com.biswaraj.rideshare.viewmodel.RideViewModel
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
+import dagger.hilt.android.AndroidEntryPoint
+
 
 data class Ride(
     val driver: String = "You",
@@ -52,11 +61,15 @@ data class Ride(
     val to: String,
     val dateTime: String,
     val seats: Int,
-    val cost: Double
+    val cost: Double,
+    val fromLat: Double,
+    val fromLng: Double,
+    val toLat: Double,
+    val toLng: Double
 )
 
 val ridesList = mutableStateListOf<Ride>()
-
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -87,7 +100,7 @@ class MainActivity : ComponentActivity() {
     private fun loadApp() {
         setContent {
             RideShareTheme {
-                RideShareApp()
+                RideShareNavHost()
             }
         }
     }
@@ -102,11 +115,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun RideShareApp() {
+fun RideShareNavHost() {
     val navController = rememberNavController()
+    val rideViewModel: RideViewModel = viewModel()
     NavHost(navController = navController, startDestination = "home") {
         composable("home") { HomeScreen(navController) }
-        composable("postRide") { PostRideScreen(navController) }
+        composable("postRide") {PostRideScreen(navController = navController, rideViewModel = rideViewModel) }
         composable(
             "rideDetails/{rideIndex}",
             arguments = listOf(navArgument("rideIndex") { type = NavType.IntType })
@@ -114,13 +128,14 @@ fun RideShareApp() {
             val rideIndex = backStackEntry.arguments?.getInt("rideIndex") ?: 0
             RideDetailsScreen(navController, rideIndex)
         }
-        composable("rideStatus") { RideStatusScreen(navController) }
+        composable("rideStatus") { RideStatusScreen(navController, rideViewModel) }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, viewModel: RideViewModel = hiltViewModel()) {
+    val rideList by viewModel.rides.collectAsState()
     Scaffold(
         topBar = { TopAppBar(title = { Text("RideShare") }) }
     ) { padding ->
@@ -132,13 +147,33 @@ fun HomeScreen(navController: NavController) {
             GoogleMap(
                 modifier = Modifier
                     .weight(0.6f)
-                    .fillMaxWidth()
-            ) {
-                Marker(
-                    state = MarkerState(position = LatLng(37.7749, -122.4194)),
-                    title = "Ride Offer"
+                    .fillMaxWidth(),
+                properties = MapProperties(
+                    isMyLocationEnabled = true
+                ),
+                uiSettings = MapUiSettings(
+                    myLocationButtonEnabled = true,
+                    zoomControlsEnabled = true
                 )
+            ) {
+                rideList.forEachIndexed { index, ride ->
+                    Marker(
+                        state = MarkerState(position = LatLng(ride.fromLat, ride.fromLng)),
+                        title = "Pickup: ${ride.from}",
+                        snippet = "Driver: ${ride.driver}",
+                        onClick = {
+                            navController.navigate("rideDetails/$index")
+                            true
+                        }
+                    )
+                    Marker(
+                        state = MarkerState(position = LatLng(ride.toLat, ride.toLng)),
+                        title = "Drop: ${ride.to}",
+                        snippet = "Destination"
+                    )
+                }
             }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,7 +210,7 @@ fun HomeScreen(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostRideScreen(navController: NavController) {
+fun PostRideScreen(navController: NavController, rideViewModel: RideViewModel) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Offer a Ride") }) }
     ) { padding ->
@@ -225,14 +260,18 @@ fun PostRideScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    val ride = Ride(
+                    val ride = com.biswaraj.rideshare.model.Ride(
                         from = from.value,
                         to = to.value,
                         dateTime = dateTime.value,
                         seats = seats.value.toIntOrNull() ?: 1,
-                        cost = cost.value.toDoubleOrNull() ?: 0.0
+                        cost = cost.value.toDoubleOrNull() ?: 0.0,
+                        fromLat = 37.7749,  // San Francisco dummy
+                        fromLng = -122.4194,
+                        toLat = 37.7849,
+                        toLng = -122.4094
                     )
-                    ridesList.add(ride)
+                    rideViewModel.addRide(ride)
                     navController.navigate("rideStatus")
                 },
                 modifier = Modifier.align(Alignment.End),
@@ -293,7 +332,7 @@ fun RideDetailsScreen(navController: NavController, rideIndex: Int) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RideStatusScreen(navController: NavController) {
+fun RideStatusScreen(navController: NavController, rideViewModel: RideViewModel) {
     val ride = ridesList.lastOrNull() ?: return
     Scaffold(
         topBar = { TopAppBar(title = { Text("Ride Confirmed") }) }
@@ -334,9 +373,10 @@ fun HomeScreenPreview() {
 @Preview(showBackground = true)
 @Composable
 fun PostRideScreenPreview() {
+    val navController = rememberNavController()
+    val rideViewModel = remember{ RideViewModel()}
     RideShareTheme {
-        PostRideScreen(navController = rememberNavController())
-    }
+        PostRideScreen(navController = navController, rideViewModel = rideViewModel)    }
 }
 
 @Preview(showBackground = true)
@@ -350,7 +390,9 @@ fun RideDetailsScreenPreview() {
 @Preview(showBackground = true)
 @Composable
 fun RideStatusScreenPreview() {
+    val navController = rememberNavController()
+    val rideViewModel = remember { RideViewModel() }
     RideShareTheme {
-        RideStatusScreen(navController = rememberNavController())
+        RideStatusScreen(navController = rememberNavController(), rideViewModel = rideViewModel)
     }
 }

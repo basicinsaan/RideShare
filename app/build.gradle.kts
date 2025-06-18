@@ -1,16 +1,18 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("com.google.dagger.hilt.android")
+    kotlin("kapt")
 }
 
 android {
     namespace = "com.biswaraj.rideshare"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.biswaraj.rideshare"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -67,6 +69,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.navigation.compose) // Keep this for version catalog
-    implementation("androidx.navigation:navigation-compose:2.7.7") // Add this manually
+    implementation("androidx.navigation:navigation-compose:2.9.0") // Add this manually
     implementation(libs.google.maps.compose)
+    implementation(libs.maps.compose.v420)
+    implementation(libs.play.services.maps.v1820)
+    implementation("com.google.dagger:hilt-android:2.50")
+    kapt("com.google.dagger:hilt-compiler:2.50")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+
 }
