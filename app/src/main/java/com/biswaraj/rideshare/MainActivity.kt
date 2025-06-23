@@ -3,6 +3,7 @@ package com.biswaraj.rideshare
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -46,13 +47,18 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.biswaraj.rideshare.ui.theme.RideShareTheme
 import com.biswaraj.rideshare.viewmodel.RideViewModel
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 import dagger.hilt.android.AndroidEntryPoint
+import java.security.Timestamp
 
 
 data class Ride(
@@ -84,6 +90,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ridesList.add(
+            Ride(
+                from = "San Francisco",
+                to = "Oakland",
+                dateTime = "June 23, 10:00 AM",
+                seats = 3,
+                cost = 30.0,
+                fromLat = 37.7749,   // San Francisco
+                fromLng = -122.4194,
+                toLat = 37.8044,     // Oakland
+                toLng = -122.2711
+            )
+        )
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
             checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             locationPermissionRequest.launch(
@@ -144,6 +163,12 @@ fun HomeScreen(navController: NavController, viewModel: RideViewModel = hiltView
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            val cameraPositionState = rememberCameraPositionState {
+                position = CameraPosition.fromLatLngZoom(
+                    LatLng(rideList.firstOrNull()?.fromLat ?: 0.0, rideList.firstOrNull()?.fromLng ?: 0.0),
+                    12f
+                )
+            }
             GoogleMap(
                 modifier = Modifier
                     .weight(0.6f)
@@ -322,7 +347,29 @@ fun RideDetailsScreen(navController: NavController, rideIndex: Int) {
                 TextButton(onClick = { navController.popBackStack() }) {
                     Text("Back")
                 }
-                Button(onClick = { navController.navigate("rideStatus") }) {
+                Button(onClick = {
+                    val db = Firebase.firestore
+                    val rideId = ride.id.ifEmpty{"testRide"}
+                    val userId = "user_${System.currentTimeMillis()}"
+
+                    val joinData = hashMapOf(
+                        "name" to "Biswaraj", //or get it from logged in user
+                        "joinedAt" to Timestamp.now()
+                    )
+
+                    db.collection("rides")
+                        .document(rideId)
+                        .collection("joinRequests")
+                        .document(userId)
+                        .set(joinData)
+                        .addOnSuccessListener {
+                            Toast.makeText(context, "Join request sent!", Toast.LENGTH_SHORT).show()
+                            navController.navigate("rideStatus")
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(context, "Failed to join ride", Toast.LENGTH_SHORT).show()
+                        }
+                }) {
                     Text("Join Ride")
                 }
             }
